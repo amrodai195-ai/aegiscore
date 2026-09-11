@@ -13,7 +13,7 @@ AegisCore is a real full-stack security workspace for source-code scanning and a
 
 ## Important security behavior
 
-The scanner never executes customer source code. It performs static analysis and dependency queries. Uploaded source is capped per request and stored as objects in R2; MySQL contains metadata and findings rather than the full repository payload.
+The scanner never executes customer source code. It performs static analysis and dependency queries. Uploaded source is capped per request and stored as objects in Supabase Storage; MySQL contains metadata and findings rather than the full repository payload.
 
 The AI layer never has a fake fallback. When the provider is not configured, the API returns a clear configuration error.
 

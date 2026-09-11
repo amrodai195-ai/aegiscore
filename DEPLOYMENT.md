@@ -12,7 +12,7 @@ Create a GitHub OAuth App from GitHub Settings → Developer settings → OAuth 
 
 GitHub requires the callback URL to match the value registered for the OAuth app unless you intentionally configure wildcard matching.
 
-Create no secret values inside Git. Keep the Client Secret only in Render environment variables.
+Create no secret values inside Git. Keep the Client Secret only in the hosting provider's environment variables.
 
 ## 2. Aiven MySQL
 
@@ -48,7 +48,17 @@ Create a Gemini API key and set:
 
 Optionally change `GEMINI_MODEL` to a model currently available to your account. AegisCore does not use fake responses when the key is missing.
 
-## 5. Render
+## 5. Vercel
+
+Import the GitHub repository into Vercel. The included `vercel.json` builds the React app into `dist/public`, routes every `/api/*` request to the Express serverless handler, and rewrites client-side routes to the SPA entry point.
+
+In Project Settings → Environment Variables, add the variables in `.env.example` for **Production**. Set `APP_URL` to the exact production URL, then configure the same URL in the GitHub OAuth app:
+
+`https://YOUR-VERCEL-DOMAIN/api/auth/github/callback`
+
+Vercel deployment does not read the local `.env` file. Do not upload or commit it.
+
+## 6. Render (optional)
 
 Create a Render Web Service from the GitHub repository or use the included `render.yaml` Blueprint.
 
@@ -70,7 +80,7 @@ Set the environment variables listed in `.env.example` / `render.yaml`.
 
 After deployment, set `APP_URL` to the exact HTTPS Render URL and make the same callback URL the GitHub OAuth application uses.
 
-## 6. First login and scan
+## 7. First login and scan
 
 Open the Render URL and sign in with GitHub.
 
@@ -78,7 +88,7 @@ Open Repositories, choose a GitHub repository, connect it, then run Scan GitHub.
 
 For a local source upload, create/select an upload repository, choose supported text files, upload them, then run Scan uploaded source.
 
-## 7. GitHub Actions security CI
+## 8. GitHub Actions security CI
 
 The included `.github/workflows/security.yml` runs Semgrep and Gitleaks for pushes and pull requests. This is a CI safety net in addition to the server-side AegisCore scanner.
 

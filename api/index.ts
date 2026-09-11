@@ -3,7 +3,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../server/routers";
 import { createContext } from "../server/context";
 import { config, assertProductionConfig } from "../server/config";
-import { createOauthState, setOauthState, exchangeGithubCode, clearOauthState } from "../server/auth";
+import { createOauthState, setOauthState, exchangeGithubCode, clearOauthState, getOauthState } from "../server/auth";
 
 assertProductionConfig();
 
@@ -16,6 +16,8 @@ app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (config.nodeEnv === "production") res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   if (req.path.startsWith("/api/")) res.setHeader("Cache-Control", "no-store");
   next();
 });
@@ -39,7 +41,7 @@ app.get("/api/auth/github/callback", async (req, res) => {
     const code = String(req.query.code ?? "");
     const state = String(req.query.state ?? "");
     if (!code || !state) return res.status(400).send("Missing OAuth callback parameters.");
-    const expected = (req.headers.cookie ?? "").split(";").map(c => c.trim().split("=")).find(([k]) => k === "aegis_oauth_state")?.[1];
+    const expected = getOauthState(req);
     await exchangeGithubCode(code, state, expected, req, res);
     res.redirect("/");
   } catch (error) {

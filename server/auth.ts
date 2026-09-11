@@ -9,8 +9,8 @@ const STATE_COOKIE = 'aegis_oauth_state';
 const SESSION_DAYS = 7;
 
 function secretKey() {
-  if (!config.sessionSecret) throw new Error('SESSION_SECRET is not configured');
-  return new TextEncoder().encode(config.sessionSecret);
+  if (!config.jwtSecret) throw new Error('JWT_SECRET is not configured');
+  return new TextEncoder().encode(config.jwtSecret);
 }
 
 export function setOauthState(res: Response, state: string) {
