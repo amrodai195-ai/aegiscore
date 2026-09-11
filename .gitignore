@@ -112,4 +112,5 @@ temp/
 # Local AegisCore secrets/config
 .env
 .env.*
+!.env.example
 .project-config.json
