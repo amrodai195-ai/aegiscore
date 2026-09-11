@@ -1,0 +1,62 @@
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { AlertTriangle, CheckCircle2, FileCode2, GitBranch, Play, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Link } from 'wouter';
+import { toast } from 'sonner';
+import AegisChat from '../components/AegisChat';
+import { startLogin } from '../const';
+import { useAuth } from '../hooks/useAuth';
+import { trpc } from '../lib/trpc';
+
+const severityOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4 } as const;
+
+export default function Home() {
+  const { user, loading } = useAuth();
+  const repos = trpc.repository.list.useQuery(undefined, { enabled: Boolean(user) });
+  const [selectedId, setSelectedId] = useState<number | undefined>();
+  const selected = useMemo(() => selectedId ?? repos.data?.[0]?.id, [selectedId, repos.data]);
+  const snapshot = trpc.repository.snapshot.useQuery({ repositoryId: selected! }, { enabled: Boolean(selected) });
+  const scan = trpc.repository.scanGithub.useMutation({ onSuccess: () => snapshot.refetch(), onError: (error) => toast.error('Scan failed', { description: error.message }) });
+  const [patch, setPatch] = useState<{ id: number; title: string; explanation: string; diff: string } | null>(null);
+  const proposePatch = trpc.patch.propose.useMutation({ onSuccess: (result) => { if (result) { setPatch({ id: result.id, title: result.title, explanation: result.explanation, diff: result.diff }); toast.success('AI remediation generated'); } }, onError: (error) => toast.error('Patch generation failed', { description: error.message }) });
+  const applyPatch = trpc.patch.approveAndApply.useMutation({ onSuccess: (result) => toast.success(result.pullRequest ? 'Pull request created' : 'Patch committed', { description: result.pullRequest?.html_url ?? result.commitUrl ?? result.branch }), onError: (error) => toast.error('Could not apply patch', { description: error.message }) });
+
+  if (loading) return <div className="min-h-screen grid place-items-center bg-background text-muted-foreground">Loading AegisCore…</div>;
+  if (!user) {
+    return <div className="min-h-screen grid place-items-center bg-background px-6"><div className="max-w-lg text-center space-y-5"><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border bg-card"><ShieldCheck /></div><h1 className="text-4xl font-semibold">AegisCore</h1><p className="text-muted-foreground">Real repository security scanning, findings, AI-assisted remediation, and audit history. Sign in with GitHub to create a secure workspace.</p><button className="inline-flex items-center rounded-xl bg-primary px-5 py-3 font-medium text-primary-foreground" onClick={startLogin}>Sign in with GitHub</button></div></div>;
+  }
+
+  const findings = snapshot.data?.findings ?? [];
+  const counts = findings.reduce((acc, finding) => { acc[finding.severity] = (acc[finding.severity] ?? 0) + 1; return acc; }, {} as Record<string, number>);
+  const sorted = [...findings].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  const latest = snapshot.data?.latestScan;
+  const activeRepo = repos.data?.find((repo) => repo.id === selected);
+
+  return <div className="min-h-screen bg-background p-6 lg:p-10">
+    <div className="mx-auto max-w-7xl space-y-8">
+      <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+        <div><div className="text-xs font-semibold tracking-[0.2em] text-muted-foreground">AEGISCORE SECURITY WORKSPACE</div><h1 className="mt-2 text-4xl font-semibold tracking-tight">Security posture<span className="text-primary">.</span></h1><p className="mt-2 text-muted-foreground">{user.name ?? user.githubLogin} · GitHub-connected repositories</p></div>
+        <div className="flex gap-3"><Link href="/repositories" className="rounded-xl border px-4 py-2.5 text-sm hover:bg-accent">Repositories</Link><button className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50" disabled={!selected || scan.isPending || activeRepo?.sourceType !== 'github'} onClick={() => selected && scan.mutate({ repositoryId: selected })}><span>{scan.isPending ? <RefreshCw className="animate-spin" size={15} /> : <Play size={15} />}</span>{scan.isPending ? 'Scanning…' : 'Run security scan'}</button></div>
+      </header>
+
+      <section className="grid gap-4 md:grid-cols-4">
+        <Metric label="Repositories" value={String(repos.data?.length ?? 0)} icon={<GitBranch size={18} />} />
+        <Metric label="Files scanned" value={String(latest?.filesScanned ?? 0)} icon={<FileCode2 size={18} />} />
+        <Metric label="Open findings" value={String(findings.filter((f) => f.status === 'open').length)} icon={<AlertTriangle size={18} />} />
+        <Metric label="Critical / High" value={`${counts.critical ?? 0} / ${counts.high ?? 0}`} icon={<ShieldCheck size={18} />} />
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[280px_1fr]">
+        <aside className="rounded-2xl border bg-card p-4"><div className="mb-3 text-xs font-semibold tracking-widest text-muted-foreground">REPOSITORIES</div><div className="space-y-2">{repos.data?.map((repo) => <button key={repo.id} onClick={() => setSelectedId(repo.id)} className={`w-full rounded-xl border p-3 text-left transition ${selected === repo.id ? 'border-primary/50 bg-primary/5' : 'hover:bg-accent'}`}><div className="font-medium">{repo.name}</div><div className="mt-1 text-xs text-muted-foreground">{repo.sourceType} · {repo.branch}</div></button>)}{!repos.data?.length ? <p className="text-sm text-muted-foreground">No repositories yet.</p> : null}</div><Link href="/repositories" className="mt-4 block rounded-xl border px-3 py-2 text-center text-sm hover:bg-accent">Manage sources</Link></aside>
+
+        <main className="space-y-6"><section className="rounded-2xl border bg-card p-5"><div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><div className="text-xs font-semibold tracking-widest text-muted-foreground">LATEST SCAN</div><h2 className="mt-1 text-xl font-semibold">{activeRepo?.name ?? 'Select a repository'}</h2><p className="mt-1 text-sm text-muted-foreground">{latest ? `${latest.status} · ${latest.engineVersion} · ${new Date(latest.createdAt).toLocaleString()}` : 'Run a scan after connecting or uploading source files.'}</p></div>{latest?.status === 'completed' ? <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm"><CheckCircle2 size={15} />{latest.findingsCount} findings</div> : null}</div></section>
+
+        <section className="rounded-2xl border bg-card p-5"><div className="mb-4 flex items-center justify-between"><div><div className="text-xs font-semibold tracking-widest text-muted-foreground">FINDINGS</div><h2 className="mt-1 text-xl font-semibold">Actionable vulnerabilities</h2></div><span className="rounded-full border px-2.5 py-1 text-xs">{findings.length}</span></div><div className="divide-y">{sorted.slice(0, 25).map((finding) => <div key={finding.id} className="grid gap-3 py-4 md:grid-cols-[110px_1fr_auto]"><div><span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${finding.severity === 'critical' ? 'bg-red-500/15 text-red-400' : finding.severity === 'high' ? 'bg-orange-500/15 text-orange-400' : finding.severity === 'medium' ? 'bg-yellow-500/15 text-yellow-400' : 'bg-muted text-muted-foreground'}`}>{finding.severity}</span></div><div><div className="font-medium">{finding.title}</div><p className="mt-1 text-sm text-muted-foreground">{finding.description}</p><div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground"><span>{finding.code}</span><span>{finding.filename}:{finding.lineNumber}</span><span>{finding.scanner}</span></div></div><div className="flex flex-col items-end gap-2 text-xs text-muted-foreground"><span>{finding.confidence}% confidence</span><button disabled={proposePatch.isPending} onClick={() => activeRepo && proposePatch.mutate({ repositoryId: activeRepo.id, findingId: finding.id })} className="rounded-lg border px-2.5 py-1.5 text-xs hover:bg-accent disabled:opacity-50">{proposePatch.isPending ? 'Generating…' : 'Generate fix'}</button></div></div>)}{!sorted.length ? <div className="py-10 text-center text-sm text-muted-foreground">No findings yet. Run a real scan to populate this list.</div> : null}</div></section></main>
+      </section>
+      {patch ? <section className="rounded-2xl border bg-card p-5"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><div className="text-xs font-semibold tracking-widest text-muted-foreground">AI REMEDIATION</div><h2 className="mt-1 text-xl font-semibold">{patch.title}</h2><p className="mt-1 text-sm text-muted-foreground">{patch.explanation}</p></div><div className="flex gap-2"><button onClick={() => setPatch(null)} className="rounded-xl border px-3 py-2 text-sm">Close</button>{activeRepo?.sourceType === 'github' ? <button disabled={applyPatch.isPending} onClick={() => applyPatch.mutate({ patchId: patch.id, createPr: true })} className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">{applyPatch.isPending ? 'Applying…' : 'Approve + create PR'}</button> : null}</div></div><pre className="mt-5 max-h-96 overflow-auto rounded-xl border bg-muted/20 p-4 text-xs leading-5"><code>{patch.diff}</code></pre></section> : null}
+      <AegisChat repositoryId={selected} />
+    </div>
+  </div>;
+}
+
+function Metric({ label, value, icon }: { label: string; value: string; icon: ReactNode }) { return <div className="rounded-2xl border bg-card p-5"><div className="flex items-center justify-between text-muted-foreground"><span className="text-sm">{label}</span><span>{icon}</span></div><div className="mt-3 text-3xl font-semibold">{value}</div></div>; }
