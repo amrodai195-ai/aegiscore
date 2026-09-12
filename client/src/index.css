@@ -277,3 +277,8 @@ h1 { margin: 9px 0 8px; color: #f0f7f7; font-size: clamp(27px, 3vw, 37px); font-
 @media (max-width: 720px) { .repo-side-column { grid-template-columns: 1fr; }.repository-page .heading-actions { width: 100%; }.repository-page .heading-actions .safe-badge { display: none; }.advanced-search { padding-left: 16px; padding-right: 16px; }.findings-pagination { align-items: flex-start; flex-direction: column; padding-left: 16px; padding-right: 16px; }.file-row { padding-left: 16px; padding-right: 16px; }.files-footer { align-items: flex-start; flex-direction: column; padding-left: 16px; padding-right: 16px; }.chat-launcher { right: 15px; bottom: 15px; }.chat-panel { right: 15px; bottom: 15px; } }
 
 .filter-dot.low { background: #88b6b1; }
+@font-face { font-family: "bein black"; src: local("bein black"), local("Bein Black"); font-display: swap; }
+@font-face { font-family: "agencyFB"; src: local("agencyFB"), local("Agency FB"); font-display: swap; }
+
+html[lang="ar"] body { font-family: "bein black", Tahoma, Arial, sans-serif; }
+html[lang="en"] body { font-family: "agencyFB", "DM Sans", ui-sans-serif, system-ui, sans-serif; }
