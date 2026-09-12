@@ -1,6 +1,3 @@
-import { createLocalUser, verifyLocalUser } from '../../server/localAuth';
-import { createSession } from '../../server/auth';
-
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') { res.statusCode = 405; res.setHeader('Allow', 'POST'); res.end('Method not allowed'); return; }
   try {
@@ -11,6 +8,8 @@ export default async function handler(req: any, res: any) {
     const name = String(body.name ?? '');
     if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Enter a valid email address');
     if (password.length < 8) throw new Error('Password must be at least 8 characters');
+    const { createLocalUser, verifyLocalUser } = await import('../../server/localAuth');
+    const { createSession } = await import('../../server/auth');
     const user = action === 'signup' ? await createLocalUser(email, name, password) : await verifyLocalUser(email, password);
     const session = await createSession(user.id);
     res.setHeader('Set-Cookie', `aegis_session=${encodeURIComponent(session)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
