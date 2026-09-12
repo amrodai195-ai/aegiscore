@@ -10,5 +10,7 @@ export default function handler(_req: any, res: any) {
   url.searchParams.set('redirect_uri', `${config.appUrl}/api/auth/github/callback`);
   url.searchParams.set('scope', config.github.scopes);
   url.searchParams.set('state', state);
-  res.redirect(url.toString());
+  res.statusCode = 302;
+  res.setHeader('Location', url.toString());
+  res.end();
 }
