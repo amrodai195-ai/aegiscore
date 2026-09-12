@@ -28,7 +28,9 @@ export default async function handler(req: any, res: any) {
     const user = await upsertGithubUser({ githubId: String(profile.id), githubLogin: profile.login, name: profile.name ?? profile.login, email, avatarUrl: profile.avatar_url ?? null, githubTokenEncrypted: encryptGithubToken(tokenData.access_token) });
     const session = await createSession(user.id);
     res.setHeader('Set-Cookie', [`aegis_session=${encodeURIComponent(session)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`, 'aegis_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0']);
-    res.redirect('/');
+    res.statusCode = 302;
+    res.setHeader('Location', '/');
+    res.end();
   } catch (error) {
     res.status(400).send(error instanceof Error ? error.message : 'GitHub login failed');
   }
