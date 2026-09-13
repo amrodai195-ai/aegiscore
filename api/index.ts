@@ -1,4 +1,4 @@
-﻿import express from "express";
+﻿import express, { type NextFunction, type Request, type Response } from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../server/routers";
 import { createContext } from "../server/context";
@@ -12,7 +12,7 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "25mb" }));
 
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -36,7 +36,7 @@ app.get("/api/auth/github", (_req, res) => {
   res.redirect(url.toString());
 });
 
-app.get("/api/auth/github/callback", async (req, res) => {
+app.get("/api/auth/github/callback", async (req: Request, res: Response) => {
   try {
     const code = String(req.query.code ?? "");
     const state = String(req.query.state ?? "");

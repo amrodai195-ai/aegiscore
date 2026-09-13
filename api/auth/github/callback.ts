@@ -5,9 +5,9 @@ export default async function handler(req: any, res: any) {
   try {
     const code = String(req.query?.code ?? ''); const state = String(req.query?.state ?? ''); const expected = cookies(req).aegis_oauth_state;
     if (!code || !state || !expected || Buffer.byteLength(state) !== Buffer.byteLength(expected) || !crypto.timingSafeEqual(Buffer.from(state), Buffer.from(expected))) return reply(res, 400, 'Invalid OAuth state or callback parameters. Please restart GitHub sign-in.');
-    const { config } = await import('../../../../server/config');
-    const { encryptGithubToken, createSession } = await import('../../../../server/auth');
-    const { upsertGithubUser } = await import('../../../../server/db');
+    const { config } = await import('../../../server/config');
+    const { encryptGithubToken, createSession } = await import('../../../server/auth');
+    const { upsertGithubUser } = await import('../../../server/db');
     const tokenResponse = await fetch('https://github.com/login/oauth/access_token', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: config.github.clientId, client_secret: config.github.clientSecret, code, redirect_uri: `${config.appUrl}/api/auth/github/callback` }) });
     const tokenData = await tokenResponse.json() as { access_token?: string; error?: string; error_description?: string };
     if (!tokenData.access_token) throw new Error(tokenData.error_description ?? tokenData.error ?? 'GitHub did not return an access token');
