@@ -8,8 +8,7 @@ import './index.css';
 
 const queryClient = new QueryClient();
 const trpcClient = trpc.createClient({
-  transformer: superjson,
-  links: [httpBatchLink({ url: '/api/trpc', fetch: (input, init) => fetch(input, { ...(init ?? {}), credentials: 'include' }) })],
+    links: [httpBatchLink({ url: '/api/trpc', transformer: superjson, fetch: (input, init) => fetch(input, { ...(init ?? {}), credentials: 'include' }) })],
 });
 
 createRoot(document.getElementById('root')!).render(

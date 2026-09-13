@@ -1,119 +1,22 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean } from 'drizzle-orm/mysql-core';
+import { boolean, integer, pgEnum, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
-export const users = mysqlTable('users', {
-  id: int('id').autoincrement().primaryKey(),
-  githubId: varchar('githubId', { length: 64 }).notNull().unique(),
-  githubLogin: varchar('githubLogin', { length: 128 }).notNull(),
-  githubTokenEncrypted: text('githubTokenEncrypted'),
-  name: text('name'),
-  email: varchar('email', { length: 320 }),
-  avatarUrl: varchar('avatarUrl', { length: 1024 }),
-  role: mysqlEnum('role', ['user', 'admin']).default('user').notNull(),
-  createdAt: timestamp('createdAt').defaultNow().notNull(),
-  updatedAt: timestamp('updatedAt').defaultNow().onUpdateNow().notNull(),
-  lastSignedIn: timestamp('lastSignedIn').defaultNow().notNull(),
-});
+export const userRole = pgEnum('user_role', ['user', 'admin']);
+export const repositorySourceType = pgEnum('repository_source_type', ['github', 'upload']);
+export const repositoryFileStatus = pgEnum('repository_file_status', ['ready', 'scanning', 'complete', 'error']);
+export const scanStatus = pgEnum('scan_status', ['queued', 'running', 'completed', 'failed']);
+export const findingSeverity = pgEnum('finding_severity', ['critical', 'high', 'medium', 'low', 'info']);
+export const findingStatus = pgEnum('finding_status', ['open', 'resolved', 'ignored']);
+export const chatRole = pgEnum('chat_role', ['user', 'assistant', 'system']);
+export const patchStatus = pgEnum('patch_status', ['proposed', 'approved', 'rejected', 'applied']);
 
-export const repositories = mysqlTable('repositories', {
-  id: int('id').autoincrement().primaryKey(),
-  ownerId: int('ownerId').notNull(),
-  workspaceSlug: varchar('workspaceSlug', { length: 128 }).notNull(),
-  name: varchar('name', { length: 255 }).notNull(),
-  branch: varchar('branch', { length: 128 }).default('main').notNull(),
-  githubOwner: varchar('githubOwner', { length: 128 }),
-  githubRepo: varchar('githubRepo', { length: 255 }),
-  githubDefaultBranch: varchar('githubDefaultBranch', { length: 128 }),
-  sourceType: mysqlEnum('sourceType', ['github', 'upload']).default('upload').notNull(),
-  createdAt: timestamp('createdAt').defaultNow().notNull(),
-  updatedAt: timestamp('updatedAt').defaultNow().onUpdateNow().notNull(),
-});
-
-export const repositoryFiles = mysqlTable('repositoryFiles', {
-  id: int('id').autoincrement().primaryKey(),
-  repositoryId: int('repositoryId').notNull(),
-  path: varchar('path', { length: 1024 }).notNull(),
-  filename: varchar('filename', { length: 255 }).notNull(),
-  mimeType: varchar('mimeType', { length: 128 }),
-  sizeBytes: int('sizeBytes').default(0).notNull(),
-  sha: varchar('sha', { length: 128 }),
-  storageKey: varchar('storageKey', { length: 1024 }),
-  language: varchar('language', { length: 64 }),
-  status: mysqlEnum('status', ['ready', 'scanning', 'complete', 'error']).default('ready').notNull(),
-  createdAt: timestamp('createdAt').defaultNow().notNull(),
-  updatedAt: timestamp('updatedAt').defaultNow().onUpdateNow().notNull(),
-});
-
-export const scans = mysqlTable('scans', {
-  id: int('id').autoincrement().primaryKey(),
-  repositoryId: int('repositoryId').notNull(),
-  status: mysqlEnum('status', ['queued', 'running', 'completed', 'failed']).default('queued').notNull(),
-  engineVersion: varchar('engineVersion', { length: 64 }).notNull().default('aegis-static-1'),
-  filesScanned: int('filesScanned').default(0).notNull(),
-  findingsCount: int('findingsCount').default(0).notNull(),
-  criticalCount: int('criticalCount').default(0).notNull(),
-  highCount: int('highCount').default(0).notNull(),
-  mediumCount: int('mediumCount').default(0).notNull(),
-  lowCount: int('lowCount').default(0).notNull(),
-  errorMessage: text('errorMessage'),
-  startedAt: timestamp('startedAt'),
-  completedAt: timestamp('completedAt'),
-  createdAt: timestamp('createdAt').defaultNow().notNull(),
-});
-
-export const findings = mysqlTable('findings', {
-  id: int('id').autoincrement().primaryKey(),
-  scanId: int('scanId').notNull(),
-  code: varchar('code', { length: 64 }).notNull(),
-  title: varchar('title', { length: 255 }).notNull(),
-  severity: mysqlEnum('severity', ['critical', 'high', 'medium', 'low', 'info']).notNull(),
-  confidence: int('confidence').default(80).notNull(),
-  filename: varchar('filename', { length: 1024 }).notNull(),
-  lineNumber: int('lineNumber').default(0).notNull(),
-  lineEnd: int('lineEnd').default(0).notNull(),
-  description: text('description').notNull(),
-  remediation: text('remediation'),
-  evidence: text('evidence'),
-  fingerprint: varchar('fingerprint', { length: 128 }).notNull(),
-  scanner: varchar('scanner', { length: 64 }).notNull().default('aegis-static'),
-  status: mysqlEnum('status', ['open', 'resolved', 'ignored']).default('open').notNull(),
-  createdAt: timestamp('createdAt').defaultNow().notNull(),
-});
-
-export const chatMessages = mysqlTable('chatMessages', {
-  id: int('id').autoincrement().primaryKey(),
-  repositoryId: int('repositoryId'),
-  userId: int('userId'),
-  role: mysqlEnum('role', ['user', 'assistant', 'system']).notNull(),
-  content: text('content').notNull(),
-  createdAt: timestamp('createdAt').defaultNow().notNull(),
-});
-
-export const patches = mysqlTable('patches', {
-  id: int('id').autoincrement().primaryKey(),
-  repositoryId: int('repositoryId').notNull(),
-  findingId: int('findingId').notNull(),
-  path: varchar('path', { length: 1024 }).notNull(),
-  title: varchar('title', { length: 255 }).notNull(),
-  explanation: text('explanation').notNull(),
-  originalContent: text('originalContent').notNull(),
-  proposedContent: text('proposedContent').notNull(),
-  diff: text('diff').notNull(),
-  status: mysqlEnum('status', ['proposed', 'approved', 'rejected', 'applied']).default('proposed').notNull(),
-  githubCommitSha: varchar('githubCommitSha', { length: 128 }),
-  createdAt: timestamp('createdAt').defaultNow().notNull(),
-  approvedAt: timestamp('approvedAt'),
-});
-
-export const auditLogs = mysqlTable('auditLogs', {
-  id: int('id').autoincrement().primaryKey(),
-  userId: int('userId'),
-  repositoryId: int('repositoryId'),
-  action: varchar('action', { length: 128 }).notNull(),
-  target: varchar('target', { length: 1024 }),
-  metadata: text('metadata'),
-  success: boolean('success').default(true).notNull(),
-  createdAt: timestamp('createdAt').defaultNow().notNull(),
-});
+export const users = pgTable('users', { id: serial('id').primaryKey(), githubId: varchar('githubId', { length: 128 }).notNull().unique(), githubLogin: varchar('githubLogin', { length: 128 }).notNull(), githubTokenEncrypted: text('githubTokenEncrypted'), name: text('name'), email: varchar('email', { length: 320 }), avatarUrl: varchar('avatarUrl', { length: 1024 }), role: userRole('role').default('user').notNull(), createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(), updatedAt: timestamp('updatedAt', { withTimezone: true }).defaultNow().notNull(), lastSignedIn: timestamp('lastSignedIn', { withTimezone: true }).defaultNow().notNull() });
+export const repositories = pgTable('repositories', { id: serial('id').primaryKey(), ownerId: integer('ownerId').notNull(), workspaceSlug: varchar('workspaceSlug', { length: 128 }).notNull(), name: varchar('name', { length: 255 }).notNull(), branch: varchar('branch', { length: 128 }).default('main').notNull(), githubOwner: varchar('githubOwner', { length: 128 }), githubRepo: varchar('githubRepo', { length: 255 }), githubDefaultBranch: varchar('githubDefaultBranch', { length: 128 }), sourceType: repositorySourceType('sourceType').default('upload').notNull(), createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(), updatedAt: timestamp('updatedAt', { withTimezone: true }).defaultNow().notNull() });
+export const repositoryFiles = pgTable('repositoryFiles', { id: serial('id').primaryKey(), repositoryId: integer('repositoryId').notNull(), path: varchar('path', { length: 1024 }).notNull(), filename: varchar('filename', { length: 255 }).notNull(), mimeType: varchar('mimeType', { length: 128 }), sizeBytes: integer('sizeBytes').default(0).notNull(), sha: varchar('sha', { length: 128 }), storageKey: varchar('storageKey', { length: 1024 }), language: varchar('language', { length: 64 }), status: repositoryFileStatus('status').default('ready').notNull(), createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(), updatedAt: timestamp('updatedAt', { withTimezone: true }).defaultNow().notNull() });
+export const scans = pgTable('scans', { id: serial('id').primaryKey(), repositoryId: integer('repositoryId').notNull(), status: scanStatus('status').default('queued').notNull(), engineVersion: varchar('engineVersion', { length: 64 }).notNull().default('aegis-static-1'), filesScanned: integer('filesScanned').default(0).notNull(), findingsCount: integer('findingsCount').default(0).notNull(), criticalCount: integer('criticalCount').default(0).notNull(), highCount: integer('highCount').default(0).notNull(), mediumCount: integer('mediumCount').default(0).notNull(), lowCount: integer('lowCount').default(0).notNull(), errorMessage: text('errorMessage'), startedAt: timestamp('startedAt', { withTimezone: true }), completedAt: timestamp('completedAt', { withTimezone: true }), createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull() });
+export const findings = pgTable('findings', { id: serial('id').primaryKey(), scanId: integer('scanId').notNull(), code: varchar('code', { length: 64 }).notNull(), title: varchar('title', { length: 255 }).notNull(), severity: findingSeverity('severity').notNull(), confidence: integer('confidence').default(80).notNull(), filename: varchar('filename', { length: 1024 }).notNull(), lineNumber: integer('lineNumber').default(0).notNull(), lineEnd: integer('lineEnd').default(0).notNull(), description: text('description').notNull(), remediation: text('remediation'), evidence: text('evidence'), fingerprint: varchar('fingerprint', { length: 128 }).notNull(), scanner: varchar('scanner', { length: 64 }).notNull().default('aegis-static'), status: findingStatus('status').default('open').notNull(), createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull() });
+export const chatMessages = pgTable('chatMessages', { id: serial('id').primaryKey(), repositoryId: integer('repositoryId'), userId: integer('userId'), role: chatRole('role').notNull(), content: text('content').notNull(), createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull() });
+export const patches = pgTable('patches', { id: serial('id').primaryKey(), repositoryId: integer('repositoryId').notNull(), findingId: integer('findingId').notNull(), path: varchar('path', { length: 1024 }).notNull(), title: varchar('title', { length: 255 }).notNull(), explanation: text('explanation').notNull(), originalContent: text('originalContent').notNull(), proposedContent: text('proposedContent').notNull(), diff: text('diff').notNull(), status: patchStatus('status').default('proposed').notNull(), githubCommitSha: varchar('githubCommitSha', { length: 128 }), createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(), approvedAt: timestamp('approvedAt', { withTimezone: true }) });
+export const auditLogs = pgTable('auditLogs', { id: serial('id').primaryKey(), userId: integer('userId'), repositoryId: integer('repositoryId'), action: varchar('action', { length: 128 }).notNull(), target: varchar('target', { length: 1024 }), metadata: text('metadata'), success: boolean('success').default(true).notNull(), createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull() });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;

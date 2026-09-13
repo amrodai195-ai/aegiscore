@@ -48,7 +48,7 @@ export default function Home() {
   return <div className="min-h-screen bg-background p-6 lg:p-10">
     <div className="mx-auto max-w-7xl space-y-8">
       <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div><div className="text-xs font-semibold tracking-[0.2em] text-muted-foreground">AEGISCORE SECURITY WORKSPACE</div><h1 className="mt-2 text-4xl font-semibold tracking-tight">Security posture<span className="text-primary">.</span></h1><p className="mt-2 text-muted-foreground">{user.name ?? user.githubLogin} · GitHub-connected repositories</p></div>
+        <div><div className="text-xs font-semibold tracking-[0.2em] text-muted-foreground">AEGISCORE SECURITY WORKSPACE</div><h1 className="mt-2 text-4xl font-semibold tracking-tight">Security posture<span className="text-primary">.</span></h1><p className="mt-2 text-muted-foreground">{user?.name ?? user?.githubLogin ?? 'Guest'} · GitHub-connected repositories</p></div>
         <div className="flex gap-3"><Link href="/repositories" className="rounded-xl border px-4 py-2.5 text-sm hover:bg-accent">{ar ? "المستودعات" : "Repositories"}</Link><button className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50" disabled={!selected || scan.isPending || activeRepo?.sourceType !== 'github'} onClick={() => selected && scan.mutate({ repositoryId: selected })}><span>{scan.isPending ? <RefreshCw className="animate-spin" size={15} /> : <Play size={15} />}</span>{scan.isPending ? 'Scanning…' : 'Run security scan'}</button></div>
       </header>
 

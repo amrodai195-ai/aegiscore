@@ -1,12 +1,13 @@
 import { desc, eq, and } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/mysql2';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import { auditLogs, chatMessages, findings, patches, repositories, repositoryFiles, scans, users, type InsertUser } from '../drizzle/schema';
 import { config } from './config';
 
 let db: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
-  if (!db && config.databaseUrl) db = drizzle(config.databaseUrl);
+  if (!db && config.databaseUrl) db = drizzle(new Pool({ connectionString: config.databaseUrl, ssl: { rejectUnauthorized: false }, max: 5 }));
   return db;
 }
 
@@ -21,7 +22,7 @@ export async function upsertGithubUser(input: { githubId: string; githubLogin: s
   const connection = await getDb();
   if (!connection) throw new Error('DATABASE_URL is not configured');
   const values: InsertUser = { ...input, role: 'user', lastSignedIn: new Date() };
-  await connection.insert(users).values(values).onDuplicateKeyUpdate({ set: {
+  await connection.insert(users).values(values).onConflictDoUpdate({ target: users.githubId, set: {
     githubLogin: input.githubLogin,
     name: input.name ?? null,
     email: input.email ?? null,
@@ -52,8 +53,7 @@ export async function getOrCreateRepository(userId: number, workspaceSlug: strin
   if (!connection) throw new Error('DATABASE_URL is not configured');
   const existing = await connection.select().from(repositories).where(and(eq(repositories.ownerId, userId), eq(repositories.workspaceSlug, workspaceSlug))).limit(1);
   if (existing[0]) return existing[0];
-  const result = await connection.insert(repositories).values({ ownerId: userId, workspaceSlug, name, branch: 'main', sourceType: 'upload' });
-  const rows = await connection.select().from(repositories).where(eq(repositories.id, Number(result[0].insertId))).limit(1);
+  const rows = await connection.insert(repositories).values({ ownerId: userId, workspaceSlug, name, branch: 'main', sourceType: 'upload' }).returning();
   if (!rows[0]) throw new Error('Failed to create repository');
   return rows[0];
 }
@@ -64,8 +64,7 @@ export async function upsertRepositoryFromGithub(userId: number, input: { owner:
   const slug = `${input.owner}-${input.repo}`.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 128);
   const existing = await connection.select().from(repositories).where(and(eq(repositories.ownerId, userId), eq(repositories.githubOwner, input.owner), eq(repositories.githubRepo, input.repo))).limit(1);
   if (existing[0]) return existing[0];
-  const result = await connection.insert(repositories).values({ ownerId: userId, workspaceSlug: slug, name: input.name, branch: input.branch, githubOwner: input.owner, githubRepo: input.repo, githubDefaultBranch: input.branch, sourceType: 'github' });
-  const rows = await connection.select().from(repositories).where(eq(repositories.id, Number(result[0].insertId))).limit(1);
+  const rows = await connection.insert(repositories).values({ ownerId: userId, workspaceSlug: slug, name: input.name, branch: input.branch, githubOwner: input.owner, githubRepo: input.repo, githubDefaultBranch: input.branch, sourceType: 'github' }).returning();
   if (!rows[0]) throw new Error('Failed to create GitHub repository');
   return rows[0];
 }
@@ -93,7 +92,7 @@ export async function createScan(repositoryId: number, engineVersion = 'aegis-st
   const connection = await getDb();
   if (!connection) throw new Error('DATABASE_URL is not configured');
   const result = await connection.insert(scans).values({ repositoryId, status: 'running', engineVersion, startedAt: new Date() });
-  const scan = (await connection.select().from(scans).where(eq(scans.id, Number(result[0].insertId))).limit(1))[0];
+  const scan = (await connection.insert(scans).values({ repositoryId, status: 'running', engineVersion, startedAt: new Date() }).returning())[0];
   if (!scan) throw new Error('Failed to create scan');
   await connection.update(repositoryFiles).set({ status: 'scanning' }).where(eq(repositoryFiles.repositoryId, repositoryId));
   return scan;
@@ -128,8 +127,7 @@ export async function saveChatTurn(userId: number, repositoryId: number | undefi
 export async function createPatch(input: typeof patches.$inferInsert) {
   const connection = await getDb();
   if (!connection) throw new Error('DATABASE_URL is not configured');
-  const result = await connection.insert(patches).values(input);
-  return (await connection.select().from(patches).where(eq(patches.id, Number(result[0].insertId))).limit(1))[0];
+  return (await connection.insert(patches).values(input).returning())[0];
 }
 
 export async function getPatchForUser(patchId: number, userId: number) {
@@ -151,3 +149,10 @@ export async function writeAuditLog(input: typeof auditLogs.$inferInsert) {
   if (!connection) return;
   await connection.insert(auditLogs).values(input);
 }
+
+import crypto from 'node:crypto';
+
+function hashLocalPassword(password: string) { const salt = crypto.randomBytes(16); const hash = crypto.scryptSync(password, salt, 64); return `local:v1:${salt.toString('hex')}:${hash.toString('hex')}`; }
+function verifyLocalPassword(password: string, stored: string) { const [, version, saltHex, hashHex] = stored.split(':'); if (version !== 'v1' || !saltHex || !hashHex) return false; const actual = crypto.scryptSync(password, Buffer.from(saltHex, 'hex'), 64); const expected = Buffer.from(hashHex, 'hex'); return actual.length === expected.length && crypto.timingSafeEqual(actual, expected); }
+export async function createLocalUser(email: string, name: string, password: string) { const connection = await getDb(); if (!connection) throw new Error('DATABASE_URL is not configured'); const normalized = email.trim().toLowerCase(); const githubId = `email:${normalized}`; const existing = await connection.select().from(users).where(eq(users.githubId, githubId)).limit(1); if (existing[0]) throw new Error('An account with this email already exists'); const rows = await connection.insert(users).values({ githubId, githubLogin: normalized, name: name.trim() || normalized.split('@')[0], email: normalized, githubTokenEncrypted: hashLocalPassword(password), role: 'user', lastSignedIn: new Date() }).returning(); if (!rows[0]) throw new Error('Failed to create account'); return rows[0]; }
+export async function verifyLocalUser(email: string, password: string) { const connection = await getDb(); if (!connection) throw new Error('DATABASE_URL is not configured'); const normalized = email.trim().toLowerCase(); const rows = await connection.select().from(users).where(eq(users.githubId, `email:${normalized}`)).limit(1); const user = rows[0]; if (!user || !user.githubTokenEncrypted || !verifyLocalPassword(password, user.githubTokenEncrypted)) throw new Error('Invalid email or password'); await connection.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, user.id)); return user; }

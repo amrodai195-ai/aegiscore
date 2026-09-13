@@ -31,8 +31,7 @@ export async function createLocalUser(email: string, name: string, password: str
   const githubId = `email:${normalized}`;
   const existing = await getLocalUser(normalized);
   if (existing) throw new Error('An account with this email already exists');
-  const result = await db.insert(users).values({ githubId, githubLogin: normalized, name: name.trim() || normalized.split('@')[0], email: normalized, githubTokenEncrypted: hashPassword(password), role: 'user', lastSignedIn: new Date() });
-  const rows = await db.select().from(users).where(eq(users.id, Number(result[0].insertId))).limit(1);
+  const rows = await db.insert(users).values({ githubId, githubLogin: normalized, name: name.trim() || normalized.split('@')[0], email: normalized, githubTokenEncrypted: hashPassword(password), role: 'user', lastSignedIn: new Date() }).returning();
   if (!rows[0]) throw new Error('Failed to create account');
   return rows[0];
 }

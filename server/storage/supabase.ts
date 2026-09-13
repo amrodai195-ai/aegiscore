@@ -10,7 +10,7 @@ function objectUrl(key: string) {
 
 export async function putObject(key: string, body: Uint8Array | Buffer | string, contentType = 'application/octet-stream') {
   assertConfig();
-  const response = await fetch(objectUrl(key), { method: 'POST', headers: { Authorization: `Bearer ${config.supabase.serviceRoleKey}`, apikey: config.supabase.serviceRoleKey, 'content-type': contentType, 'x-upsert': 'true' }, body });
+  const response = await fetch(objectUrl(key), { method: 'POST', headers: { Authorization: `Bearer ${config.supabase.serviceRoleKey}`, apikey: config.supabase.serviceRoleKey, 'content-type': contentType, 'x-upsert': 'true' }, body: body as any });
   if (!response.ok) throw new Error(`Supabase Storage upload failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
   return key;
 }
