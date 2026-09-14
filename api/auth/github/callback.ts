@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
-function cookies(req: any) { return Object.fromEntries(String(req.headers.cookie ?? '').split(';').filter(Boolean).map((part: string) => { const [key, ...value] = part.trim().split('='); return [key, decodeURIComponent(value.join('='))]; })); }
-function reply(res: any, code: number, message: string) { res.statusCode = code; res.setHeader('Content-Type', 'text/plain; charset=utf-8'); res.end(message); }
-export default async function handler(req: any, res: any) {
+import type { Request, Response } from 'express';
+function cookies(req: Request) { return Object.fromEntries(String(req.headers.cookie ?? '').split(';').filter(Boolean).map((part: string) => { const [key, ...value] = part.trim().split('='); return [key, decodeURIComponent(value.join('='))]; })); }
+function reply(res: Response, code: number, message: string) { res.statusCode = code; res.setHeader('Content-Type', 'text/plain; charset=utf-8'); res.end(message); }
+export default async function handler(req: Request, res: Response) {
   try {
     const code = String(req.query?.code ?? ''); const state = String(req.query?.state ?? ''); const expected = cookies(req).aegis_oauth_state;
     if (!code || !state || !expected || Buffer.byteLength(state) !== Buffer.byteLength(expected) || !crypto.timingSafeEqual(Buffer.from(state), Buffer.from(expected))) return reply(res, 400, 'Invalid OAuth state or callback parameters. Please restart GitHub sign-in.');

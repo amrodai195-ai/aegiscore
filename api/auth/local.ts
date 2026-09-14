@@ -1,6 +1,7 @@
-import { createLocalUser, verifyLocalUser } from '../../../server/db';
-import { createSession } from '../../../server/auth';
-export default async function handler(req: any, res: any) {
+import type { Request, Response } from 'express';
+import { createLocalUser, verifyLocalUser } from '../../server/db';
+import { createSession } from '../../server/auth';
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') { res.statusCode = 405; res.setHeader('Allow', 'POST'); res.end('Method not allowed'); return; }
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
